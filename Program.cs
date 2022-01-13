@@ -714,7 +714,7 @@ namespace QuestDump
 													"Blue Yian Kut-Ku",
 													"Purple Gypceros",
 													"Yian Garuga",
-													"Azure Rathalos",
+													"Silver Rathalos",
 													"Gold Rathian",
 													"Black Diablos",
 													"White Monoblos",
@@ -722,7 +722,7 @@ namespace QuestDump
 													"Green Plesioth",
 													"Black Gravios",
 													"Basarios",
-													"Silver Rathalos",
+													"Azure Rathalos",
 													"Ashen Lao-Shan Lung" };
 		static void Main(string[] args)
 		{
@@ -783,6 +783,19 @@ namespace QuestDump
 			public uint itemChance;
 			public string itemNameStr;
 		}
+		
+		static uint Skipffff(BinaryReader stream)
+        	{
+           	 	uint value;
+
+            		value = stream.ReadUInt16();
+            		if (value != 65535)
+            	{
+                	return value;
+            	}
+            		value = stream.ReadUInt16();
+            		return value;
+        	}
 
 		static string ReadUntilNull(BinaryReader stream)
 		{
@@ -1111,11 +1124,27 @@ namespace QuestDump
 			uint rewardType = 0;
 			uint rewardNumber = 0;
 			string allRewardNames = "";
+			string allCondNames = "";
 
-			while (br.ReadInt16() != 0)
-            {
-				rewardNumber++;
-            }
+           		 while (br.ReadInt16() != -32768)
+
+            		{
+                		Console.WriteLine(rewardNumber);
+                		br.BaseStream.Seek(-2, SeekOrigin.Current);
+                		int j = br.ReadInt16();
+                		if (j == 0)
+                		{
+                    			Console.WriteLine(rewardNumber);
+                    			continue;
+                		}
+                		else if (j == -1)
+                		{
+                    			Console.WriteLine(rewardNumber);
+                    			continue;
+                		} 
+                		rewardNumber++;
+                
+            		}
 
 			rewardNumber--;
 			rewardNumber /= 3;
@@ -1131,17 +1160,59 @@ namespace QuestDump
 
 			for (int n = 1; n < rewardNumber; n++)
 			{
-				Console.WriteLine("Reading Reward Chance");
-				rew[n].itemChance = br.ReadUInt16();
-				Console.WriteLine("Reading Reward Type");
-				rewardType = br.ReadUInt16();
-				rew[n].itemName = rewardType;
-				Console.WriteLine("Reading Reward Amount");
-				rew[n].itemAmount = br.ReadUInt16();
-				Console.WriteLine("Reading Reward Name");
-				rew[n].itemNameStr = itemName[rewardType - 1];
-				Console.WriteLine("Adding Item to list");
-				allRewardNames = $"{allRewardNames} {rew[n].itemNameStr} x {rew[n].itemAmount} {rew[n].itemChance}% \n";
+				if (br.ReadUInt16() == 65535)
+                		{
+
+                    			int y = (int)(rewardNumber - n + 1);
+                   			 n = (int)(rewardNumber - 1);
+                    			br.BaseStream.Seek(-2, SeekOrigin.Current);
+                    			for (int x = 1; x < y; x++)
+                    			{
+                        			if (br.ReadUInt32() == 65535)
+                        			{
+                            				allCondNames = $"{allCondNames}|";
+                            				x--;
+                            				continue;
+                        			}
+                        			br.BaseStream.Seek(-4, SeekOrigin.Current);
+                        			Console.WriteLine("Reading Conditional Reward Chance");
+                        			rew[n].itemChance = Skipffff(br);
+                        			Console.WriteLine("Reading Conditional Reward Type");
+                        			rewardType = Skipffff(br);
+                        			rew[n].itemName = rewardType;
+                        			Console.WriteLine("Reading Conditional Reward Amount");
+                        			rew[n].itemAmount = Skipffff(br);
+                        			Console.WriteLine("Reading Conditional Reward Name");
+                        			rew[n].itemNameStr = itemName[rewardType - 1];
+                        			Console.WriteLine("Adding Item to list");
+                        			allCondNames = $"{allCondNames} {rew[n].itemNameStr} x {rew[n].itemAmount} {rew[n].itemChance}%\n";
+                        			if (br.ReadUInt16() == 65535)
+                       	 			{
+                            				allCondNames = $"{allCondNames}|";
+                            				br.BaseStream.Seek(-2, SeekOrigin.Current);
+                            				continue;
+
+                        			}
+                        			br.BaseStream.Seek(-2, SeekOrigin.Current);
+                    			}
+               
+
+                		}
+                		else
+                		{
+                    			br.BaseStream.Seek(-2, SeekOrigin.Current);
+                   			Console.WriteLine("Reading Reward Chance");
+                   			rew[n].itemChance = br.ReadUInt16();
+                    			Console.WriteLine("Reading Reward Type");
+                    			rewardType = br.ReadUInt16();
+                    			rew[n].itemName = rewardType;
+                    			Console.WriteLine("Reading Reward Amount");
+                    			rew[n].itemAmount = br.ReadUInt16();
+                    			Console.WriteLine("Reading Reward Name");
+                    			rew[n].itemNameStr = itemName[rewardType - 1];
+                    			Console.WriteLine("Adding Item to list");
+                    			allRewardNames = $"{allRewardNames} {rew[n].itemNameStr} x {rew[n].itemAmount} {rew[n].itemChance}%\n";
+                		}
 			}
 
 			Console.WriteLine("Grabbing Objective Pointer");
@@ -1162,8 +1233,8 @@ namespace QuestDump
 			string objectivesComplete = "";
 
 			switch (objectiveString1)
-            {
-                case "Slay":
+            		{
+                		case "Slay":
 					Console.WriteLine("Objective 1 Slay");
 					objectivesComplete = $"{objectiveString1} {objectiveAmount1} {monsterName[objectiveTarget1 - 1]}";
 					Console.WriteLine("Objective Acquired");
@@ -1174,7 +1245,7 @@ namespace QuestDump
 					Console.WriteLine("Objective Acquired");
 					break;
 				default:
-						break;
+					break;
 
 			}
 
@@ -1232,13 +1303,15 @@ namespace QuestDump
 				//github table syntax
 				case "-gh":
 
-					questSuccess = questSuccess.Replace("\n", "<br/>");
-					questFailure = questFailure.Replace("\n", "<br/>");
-					objectivesComplete = objectivesComplete.Replace("\n", "<br/>");
-					questRequestor = questRequestor.Replace("Requestor: ", "");
-					questDescriptionSimple = questDescriptionSimple.Replace("\n", "<br/>");
-					allSupplyNames = allSupplyNames.Replace("\n", "<br/>");
-					allRewardNames = allRewardNames.Replace("\n", "<br/>");
+					questFailure = questFailure.Replace("\n", ", ");
+                    			objectivesComplete = objectivesComplete.Replace("\n", ", ");
+                   			questRequestor = questRequestor.Replace("Requestor: ", "");
+                    			questDescriptionSimple = questDescriptionSimple.Replace("\n", " ");
+                    			questDescriptionSimple = string.Join(" ", questDescriptionSimple.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+                    			allSupplyNames = allSupplyNames.Replace("\n", " ");
+                    			allRewardNames = allRewardNames.Replace("\n", " ");
+                    			allCondNames = allCondNames.Replace("\n", " ");
+                    			truerewardNumber = rewardNumber - 1;
 					questText = "| Parameter | Value |\n" +
 								"| --- | --- |\n" +
 								"| Quest ID | " + questID + " |\n" +
@@ -1254,12 +1327,13 @@ namespace QuestDump
 								"| Failure Condition | " + questFailure + " |\n" +
 								"| Supply Items | " + allSupplyNames + " |\n" +
 								"| Reward Items | " + allRewardNames + " |\n" +
+						                "| Conditional Items  | " + allCondNames + " |\n" +
 								"| Total Rewards | " + rewardNumber + " |";
 					break;
 				//plain text
 				case "-pt":
 				default:
-					questText = $"{questID}\n{questTitle}\nLocation: {areaName}\n{objectivesComplete}\nFee: {questFee}\nReward: {questReward}\nFailure Cost: {questFail}\n{questDescription}\nSuccess Condition: {questSuccess}\nFailure Condition: {questFailure}\nSupplies:\n{allSupplyNames}\nRewards:\n{allRewardNames}\nTotal Rewards: {rewardNumber}";
+					questText = $"{questID}\n{questTitle}\nLocation: {areaName}\n{objectivesComplete}\nFee: {questFee}\nReward: {questReward}\nFailure Cost: {questFail}\n{questDescription}\nSuccess Condition: {questSuccess}\nFailure Condition: {questFailure}\nSupplies:\n{allSupplyNames}\nRewards:\n{allRewardNames}\nConditional Rewards:\n{allCondNames}\nTotal Rewards: {rewardNumber}";
 					break;
 			}
 
